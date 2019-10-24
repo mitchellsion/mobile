@@ -1,14 +1,14 @@
 var common = {
-	get_modal: function(title, body_html) {
+	get_modal: function (title, body_html) {
 		var modal = $('<div class="modal" style="overflow: auto;" tabindex="-1">\
 			<div class="modal-dialog">\
 				<div class="modal-content">\
 					<div class="modal-header">\
 						<a type="button" class="close"\
 							data-dismiss="modal" aria-hidden="true">&times;</a>\
-						<h4 class="modal-title">'+title+'</h4>\
+						<h4 class="modal-title">'+ title + '</h4>\
 					</div>\
-					<div class="modal-body ui-front">'+body_html+'\
+					<div class="modal-body ui-front">'+ body_html + '\
 					</div>\
 				</div>\
 			</div>\
@@ -16,10 +16,10 @@ var common = {
 
 		return modal;
 	},
-	msgprint: function(html, title) {
-		if(html.substr(0,1)==="[")
+	msgprint: function (html, title) {
+		if (html.substr(0, 1) === "[")
 			html = JSON.parse(html);
-		if($.isArray(html)) {
+		if ($.isArray(html)) {
 			html = html.join("<hr>")
 		}
 
@@ -29,13 +29,13 @@ var common = {
 		// show new modal
 		return common.get_modal(title || "Message", html).modal("show");
 	},
-	load_script: function(txt) {
+	load_script: function (txt) {
 		var el = document.createElement('script');
 		el.appendChild(document.createTextNode(txt));
 		// execute the script globally
 		document.getElementsByTagName('head')[0].appendChild(el);
 	},
-	load_style: function(txt) {
+	load_style: function (txt) {
 		var se = document.createElement('style');
 		se.type = "text/css";
 		if (se.styleSheet) {
@@ -45,10 +45,10 @@ var common = {
 		}
 		document.getElementsByTagName('head')[0].appendChild(se);
 	},
-	handle_external_links: function() {
-		$("body").on("click", "a", function(e) {
+	handle_external_links: function () {
+		$("body").on("click", "a", function (e) {
 			href = $(this).attr("href");
-			if(href && href.substr(0, 1)!=="#") {
+			if (href && href.substr(0, 1) !== "#") {
 				cordova.InAppBrowser.open(common.get_full_url(href), '_blank',
 					'location=yes');
 				e.preventDefault();
@@ -58,20 +58,90 @@ var common = {
 		});
 		document.addEventListener("deviceready", function () {
 			window.open = cordova.InAppBrowser.open;
+
+			attach_user_device = (token)=>{
+				var url = localStorage.server + "/api/method/frappe.email.doctype.notification.notification.attach_user_device";
+				var device_name = cordova.plugins.deviceName.name;
+				var device_uuid = window.device.uuid;
+				$.ajax({
+					method: "POST",
+					url: url,
+					data: {
+						token: token,
+						device_name: device_name,
+						device_uuid: device_uuid
+					}
+				}).success(function (data) { 
+					console.log("attach success", data.message);
+				}).error(function(request, status, error) {
+					console.log("attach error", request.responseText);
+				});
+			}
+
+			open_redirect_url = (url)=>{
+				let doc_url = decodeURI(url.split("#")[1]);
+				if(window.frappe && window.frappe.set_route){
+					window.frappe.set_route(doc_url);
+					localStorage.removeItem("notif_data");
+				}
+			}
+
+			FCMPlugin.onTokenRefresh(function (token) {
+				console.log("REFRESH TOKEN FCM:" + token);
+				attach_user_device(token)
+			});
+			FCMPlugin.getToken(function (token) {
+				console.log("GET TOKEN FCM:" + token);
+				attach_user_device(token)
+			});
+
+			// FCMPlugin.onNotificationOpen(function(notification) {
+			// 	console.log("Notification Data", notification);
+			// }, function(error) {
+			// 	console.error("Notification Error", error);
+			// });
+			FCMPlugin.onNotification(function (data) {
+				localStorage.notif_data = JSON.stringify(data);
+				console.log("Alert data", data);
+				var alert = (data.aps ? data.aps.alert : {title: data.title, body: data.body});
+				if (data.wasTapped) {
+					setTimeout(() => {
+						open_redirect_url(data.doc_url);
+					}, 1000);
+				} else {
+					localStorage.removeItem("notif_data");
+					navigator.notification.confirm(alert.body, (buttonIndex) => {
+						if (buttonIndex == 2) {
+							open_redirect_url(data.doc_url);
+						}
+					}, alert.title, ['Close', 'Show']);
+				}
+			});
+
+			setInterval(()=>{
+				if (localStorage.getItem("notif_data") && localStorage.getItem("notif_data")!=null) {
+					setTimeout(() => {
+						var data = JSON.parse(localStorage.getItem("notif_data"));
+						console.log("Notif Data", data)
+						open_redirect_url(data.doc_url);
+					}, 1000);
+				}
+			}, 1000)
+			
 		});
 	},
-	get_base_url: function() {
-		var url= (common.base_url || window.location.href).split('#')[0].split('?')[0].split('desk')[0];
-		if(url.substr(url.length-1, 1)=='/') url = url.substr(0, url.length-1)
+	get_base_url: function () {
+		var url = (common.base_url || window.location.href).split('#')[0].split('?')[0].split('desk')[0];
+		if (url.substr(url.length - 1, 1) == '/') url = url.substr(0, url.length - 1)
 		return url
 	},
 
 	// returns absolute url
-	get_full_url: function(url) {
-		if(url.indexOf("http://")===0 || url.indexOf("https://")===0) {
+	get_full_url: function (url) {
+		if (url.indexOf("http://") === 0 || url.indexOf("https://") === 0) {
 			return url;
 		}
-		return url.substr(0,1)==="/" ?
+		return url.substr(0, 1) === "/" ?
 			(common.get_base_url() + url) :
 			(common.get_base_url() + "/" + url);
 	},
@@ -87,8 +157,8 @@ var common = {
 
 			function write(fileEntry, data) {
 				fileEntry.createWriter(function (fileWriter) {
-					fileWriter.onwriteend = function() {
-						if(callback){
+					fileWriter.onwriteend = function () {
+						if (callback) {
 							callback();
 						}
 					};
@@ -108,19 +178,77 @@ var common = {
 			window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, function (fs) {
 				fs.root.getFile(filename, {}, function (fileEntry) {
 					readFile(fileEntry);
-			    }, handleError);
+				}, handleError);
 			}, handleError);
 
 			function readFile(fileEntry) {
 				fileEntry.file(function (file) {
 					var reader = new FileReader();
-					reader.onloadend = function() {
+					reader.onloadend = function () {
 						callback(this.result);
 					};
 					reader.readAsText(file);
 				}, handleError);
 			}
 		}, false);
+	},
+
+	prettyDate(time, mini) {
+		if (!time) {
+			time = new Date();
+		}
+		if ('moment' in window) { // use frappe.ImportError ;)
+			let ret;
+			if (frappe.sys_defaults && frappe.sys_defaults.time_zone) {
+				ret = moment.tz(time, frappe.sys_defaults.time_zone).locale(frappe.boot.lang).fromNow(mini);
+			} else {
+				ret = moment(time).locale(frappe.boot.lang).fromNow(mini);
+			}
+			if (mini) {
+				if (ret === moment().locale(frappe.boot.lang).fromNow(mini)) {
+					ret = __("now");
+				} else {
+					var parts = ret.split(" ");
+					if (parts.length > 1) {
+						if (parts[0] === "a" || parts[0] === "an") {
+							parts[0] = 1;
+						}
+						if (parts[1].substr(0, 2) === "mo") {
+							ret = parts[0] + " M";
+						} else {
+							ret = parts[0] + " " + parts[1].substr(0, 1);
+						}
+					}
+				}
+				ret = ret.substr(0, 5);
+			}
+			return ret;
+		} else {
+			if (!time) return '';
+			var date = time;
+			if (typeof (time) == "string")
+				date = new Date((time || "").replace(/-/g, "/").replace(/[TZ]/g, " ").replace(/\.[0-9]*/, ""));
+	
+			var diff = (((new Date()).getTime() - date.getTime()) / 1000),
+				day_diff = Math.floor(diff / 86400);
+	
+			if (isNaN(day_diff) || day_diff < 0)
+				return '';
+	
+			var when = day_diff == 0 && (
+				diff < 60 && __("just now") ||
+				diff < 120 && __("1 minute ago") ||
+				diff < 3600 && __("{0} minutes ago", [Math.floor(diff / 60)]) ||
+				diff < 7200 && __("1 hour ago") ||
+				diff < 86400 && ("{0} hours ago", [Math.floor(diff / 3600)])) ||
+				day_diff == 1 && __("Yesterday") ||
+				day_diff < 7 && __("{0} days ago", day_diff) ||
+				day_diff < 31 && __("{0} weeks ago", [Math.ceil(day_diff / 7)]) ||
+				day_diff < 365 && __("{0} months ago", [Math.ceil(day_diff / 30)]) ||
+				__("> {0} year(s) ago", [Math.floor(day_diff / 365)]);
+	
+			return when;
+		}
 	}
 }
 
@@ -141,21 +269,21 @@ function getCookies(source) {
 		v = 1;
 	}
 	if (v === 0) {
-		c.split(/[,;]/).map(function(cookie) {
+		c.split(/[,;]/).map(function (cookie) {
 			var parts = cookie.split(/=/, 2),
 				name = decodeURIComponent(parts[0].trimLeft()),
 				value = parts.length > 1 ? decodeURIComponent(parts[1].trimRight()) : null;
-			if(value && value.charAt(0)==='"') {
-				value = value.substr(1, value.length-2);
+			if (value && value.charAt(0) === '"') {
+				value = value.substr(1, value.length - 2);
 			}
 			cookies[name] = value;
 		});
 	} else {
-		c.match(/(?:^|\s+)([!#$%&'*+\-.0-9A-Z^`a-z|~]+)=([!#$%&'*+\-.0-9A-Z^`a-z|~]*|"(?:[\x20-\x7E\x80\xFF]|\\[\x00-\x7F])*")(?=\s*[,;]|$)/g).map(function($0, $1) {
+		c.match(/(?:^|\s+)([!#$%&'*+\-.0-9A-Z^`a-z|~]+)=([!#$%&'*+\-.0-9A-Z^`a-z|~]*|"(?:[\x20-\x7E\x80\xFF]|\\[\x00-\x7F])*")(?=\s*[,;]|$)/g).map(function ($0, $1) {
 			var name = $0,
 				value = $1.charAt(0) === '"'
-						  ? $1.substr(1, -1).replace(/\\(.)/g, "$1")
-						  : $1;
+					? $1.substr(1, -1).replace(/\\(.)/g, "$1")
+					: $1;
 			cookies[name] = value;
 		});
 	}
@@ -163,18 +291,18 @@ function getCookies(source) {
 }
 
 if (typeof String.prototype.trimLeft !== "function") {
-	String.prototype.trimLeft = function() {
+	String.prototype.trimLeft = function () {
 		return this.replace(/^\s+/, "");
 	};
 }
 if (typeof String.prototype.trimRight !== "function") {
-	String.prototype.trimRight = function() {
+	String.prototype.trimRight = function () {
 		return this.replace(/\s+$/, "");
 	};
 }
 if (typeof Array.prototype.map !== "function") {
-	Array.prototype.map = function(callback, thisArg) {
-		for (var i=0, n=this.length, a=[]; i<n; i++) {
+	Array.prototype.map = function (callback, thisArg) {
+		for (var i = 0, n = this.length, a = []; i < n; i++) {
 			if (i in this) a[i] = callback.call(thisArg, this[i]);
 		}
 		return a;

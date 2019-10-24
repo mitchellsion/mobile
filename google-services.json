@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "378599121255",
+    "firebase_url": "https://jasaerp-135dc.firebaseio.com",
+    "project_id": "jasaerp-135dc",
+    "storage_bucket": "jasaerp-135dc.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:378599121255:android:788acf4477466550",
+        "android_client_info": {
+          "package_name": "io.jasaweb.jasaerp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "378599121255-1f4bf5vtpegbi630is0nah2kq9ittqpb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6dagh6hMpdW2-2y7dse4XvhPJLO8bPfw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
